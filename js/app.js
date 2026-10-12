@@ -6,11 +6,23 @@ const reveal=r=>$$('.card,.tile,.grp',r||document).forEach(e=>{if(e.classList.co
 /* ---------- nav ---------- */
 $('#tabs').innerHTML='<i class="ind" id="ind"></i>'+TABS.map(([k,i,n])=>`<button data-s="${k}"><span>${i}</span><b>${n}</b>${k=='favs'?'<em id="fb"></em>':''}</button>`).join('');
 const ind=n=>{const b=$(`#tabs [data-s="${n}"]`);if(!b)return;$$('#tabs button').forEach(x=>x.classList.toggle('on',x==b));$('#ind').style.cssText=`width:${b.offsetWidth}px;transform:translateX(${b.offsetLeft}px)`};
-function go(n){if(n==at)return;const nx=$('#s-'+n),pv=at&&$('#s-'+at),d=ORD.indexOf(n)>=ORD.indexOf(at)?1:-1;
-$$('.sv').forEach(x=>{if(x!=nx&&x!=pv){x.hidden=true;x.classList.remove('on','out')}});nx.style.setProperty('--dx',d*44+'px');
-if(pv){pv.style.setProperty('--dx',-d*44+'px');pv.classList.remove('on');pv.classList.add('out');setTimeout(()=>{if(pv.classList.contains('out')){pv.hidden=true;pv.classList.remove('out')}},220)}
-setTimeout(()=>{nx.classList.remove('out');nx.hidden=false;nx.classList.remove('on');void nx.offsetWidth;nx.classList.add('on');scrollTo({top:0,behavior:'instant'})},pv?180:0);at=n;ind(n=='tool'?from:n)}
-function route(){const h=location.hash.slice(1)||'home';if(h.startsWith('tool/')){const t=byId(h.slice(5));if(!t)return location.hash='tools';if(at!='tool'&&at)from=at;openTool(t);go('tool')}else{const n=ORD.slice(0,4).includes(h)?h:'home';if(n=='favs')renderFavs();go(n)}}
+let gT=[],lastP={x:0,y:0,t:0};const sy={};
+document.addEventListener('pointerdown',e=>{lastP={x:e.clientX,y:e.clientY,t:Date.now()}},{passive:true,capture:true});
+function go(n){if(n==at)return;gT.forEach(clearTimeout);gT=[];
+const nx=$('#s-'+n),pv=at&&$('#s-'+at),kind=n=='tool'?'fwd':at=='tool'?'back':'slide',d=ORD.indexOf(n)>=ORD.indexOf(at)?1:-1;
+if(at)sy[at]=scrollY;
+$$('.sv').forEach(x=>{if(x!=nx&&x!=pv){x.hidden=true;x.classList.remove('on','leaving')}});
+if(pv&&kind=='fwd'){const r0=$('#stage').getBoundingClientRect(),hit0=Date.now()-lastP.t<900;pv.style.setProperty('--sx',(hit0?lastP.x-r0.left:r0.width/2)+'px');pv.style.setProperty('--sy',(hit0?lastP.y-r0.top:200)+'px')}
+if(pv){pv.dataset.t=kind;pv.style.setProperty('--dx',-d*52+'px');pv.classList.remove('on');pv.classList.add('leaving');gT.push(setTimeout(()=>{if(pv.classList.contains('leaving')){pv.hidden=true;pv.classList.remove('leaving')}},270))}
+gT.push(setTimeout(()=>{nx.dataset.t=kind;nx.style.setProperty('--dx',d*52+'px');nx.classList.remove('leaving','on');nx.hidden=false;
+scrollTo({top:kind=='back'?sy[n]||0:0,behavior:'instant'});
+const st=$('#stage').getBoundingClientRect(),hit=Date.now()-lastP.t<900;
+nx.style.setProperty('--sx',(hit?lastP.x-st.left:st.width/2)+'px');nx.style.setProperty('--sy',(hit?Math.max(0,lastP.y-st.top):40)+'px');
+void nx.offsetWidth;nx.classList.add('on')},pv?140:0));
+at=n;ind(n=='tool'?from:n)}
+function route(){const h=location.hash.slice(1)||'home';if(h.startsWith('tool/')){const t=byId(h.slice(5));if(!t)return location.hash='tools';if(at!='tool'&&at)from=at;if(at=='tool')swapTool(t);else{openTool(t);go('tool')}}else{const n=ORD.slice(0,4).includes(h)?h:'home';if(n=='favs')renderFavs();go(n)}}
+function swapTool(t){gT.forEach(clearTimeout);gT=[];const s=$('#s-tool');s.dataset.t='slide';s.style.setProperty('--dx','-48px');s.classList.remove('on');s.classList.add('leaving');
+gT.push(setTimeout(()=>{openTool(t);s.hidden=true;void s.offsetWidth;s.hidden=false;s.classList.remove('leaving');s.style.setProperty('--dx','48px');scrollTo({top:0,behavior:'instant'});void s.offsetWidth;s.classList.add('on')},180))}
 addEventListener('hashchange',route);addEventListener('resize',()=>ind(at=='tool'?from:at));
 /* ---------- cards / favorites ---------- */
 const card=(t,i)=>`<div class="card" tabindex="0" data-id="${t.id}" style="--i:${i}"><button class="heart ${fav().includes(t.id)?'on':''}" data-h="${t.id}" aria-label="Favorite">${fav().includes(t.id)?'♥':'♡'}</button><div class="ic">${t.ic}</div><h3>${t.name}</h3><p>${t.desc}</p></div>`;
@@ -24,11 +36,12 @@ function renderFavs(){const f=fav().map(byId).filter(Boolean);$('#fgrid').innerH
 $('#s-tools').innerHTML=`<div class="ph"><h2>Tools</h2><p><span id="count">${TOOLS.length}</span> tools · private & offline · tap ♡ to favorite</p></div><div class="sbar"><input id="q" class="search" placeholder="Search tools…  (press / )" autocomplete="off"></div><div class="cats" id="cats">${['All',...Object.keys(CI).slice(1)].map(c=>`<button class="${c==cat?'on':''}">${CI[c]} ${c}</button>`).join('')}</div><div class="grid" id="grid"></div><p class="empty" id="empty">No tools match 🔍</p>`;
 $('#s-favs').innerHTML=`<div class="ph"><h2>Favorites</h2><p>Your starred tools — saved in this browser.</p></div><div class="grid" id="fgrid"></div><div class="empty2" id="fempty"><span class="em2">💫</span>No favorites yet.<br>Tap the ♡ on any tool to pin it here.<br><br><button class="btn" data-go="tools">Browse tools</button></div>`;
 function draw(){const q=$('#q').value.toLowerCase().trim(),l=TOOLS.filter(t=>(cat=='All'||t.cat==cat)&&(t.name+t.desc+t.cat).toLowerCase().includes(q));$('#grid').innerHTML=l.map(card).join('');$('#empty').style.display=l.length?'none':'block';reveal($('#grid'))}
-$('#q').oninput=draw;$('#cats').onclick=e=>{const b=e.target.closest('button');if(!b)return;cat=b.textContent.replace(/^\S+\s/,'');$$('#cats button').forEach(x=>x.classList.toggle('on',x==b));draw()};
+let gt2;function swapGrid(){const g=$('#grid');clearTimeout(gt2);if(!g.children.length)return draw();g.classList.add('leave');gt2=setTimeout(()=>{draw();g.classList.remove('leave')},170)}
+$('#q').oninput=draw;$('#cats').onclick=e=>{const b=e.target.closest('button');if(!b)return;cat=b.textContent.replace(/^\S+\s/,'');$$('#cats button').forEach(x=>x.classList.toggle('on',x==b));swapGrid()};
 /* ---------- tool view ---------- */
 $('#s-tool').innerHTML=`<button class="btn ghost" id="back">← Back</button><div class="vh"><div class="ic" id="vi"></div><div><h2 id="vt"></h2><p id="vd"></p></div><button class="heart big" id="vs"></button></div><div class="panel" id="vb"></div><div id="rel"></div>`;
 $('#back').onclick=()=>location.hash=from;
-function openTool(t){cur=t;$('#vi').textContent=t.ic;$('#vt').textContent=t.name;$('#vd').textContent=t.desc;const on=fav().includes(t.id),h=$('#vs');h.dataset.h=t.id;h.classList.toggle('on',on);h.textContent=on?'♥':'♡';$('#vb').innerHTML=t.html;t.init($('#vb'));
+function openTool(t){cur=t;$('#vi').textContent=t.ic;$('#vt').textContent=t.name;$('#vd').textContent=t.desc;const on=fav().includes(t.id),h=$('#vs');h.dataset.h=t.id;h.classList.toggle('on',on);h.textContent=on?'♥':'♡';$('#vb').innerHTML=t.html;t.init($('#vb'));$$('#vb>*').forEach((c,i)=>c.style.setProperty('--i',i));
 $('#rel').innerHTML=`<h4>More ${t.cat} tools</h4><div class="rec">${TOOLS.filter(x=>x.cat==t.cat&&x.id!=t.id).map(x=>chip(x.id)).join('')}</div>`;store.set('rec',[t.id,...rec().filter(x=>x!=t.id)].slice(0,6));store.set('used',store.get('used',0)+1);setTimeout(()=>{const i=$('#vb input:not([type=range]):not([type=checkbox]),#vb textarea');i&&i.focus({preventScroll:true})},400)}
 /* ---------- home (data only) ---------- */
 const TZ=[['New York','America/New_York'],['London','Europe/London'],['Tokyo','Asia/Tokyo'],['Sydney','Australia/Sydney']],MN=['New Moon','Waxing Crescent','First Quarter','Waxing Gibbous','Full Moon','Waning Gibbous','Last Quarter','Waning Crescent'],ME='🌑🌒🌓🌔🌕🌖🌗🌘',
@@ -65,7 +78,11 @@ const tile2=(k,i,act)=>{const t=THEMES[k];return`<button class="tt ${act?'act':'
 function tgrid(){const pick=store.get('theme','auto'),au=THEMES[autoTheme()];return`<div class="tgrid"><button class="tt auto ${pick=='auto'?'act':''}" data-th="auto" style="--i:0"><div class="pv" style="background:linear-gradient(120deg,#7c6cff,#ff7a1a,#2ecc71,#e63946)">🗓️</div><div><b>Auto — follows the calendar</b><br><small>Right now: ${au.e} ${au.n}</small></div></button>`+Object.keys(THEMES).map((k,i)=>tile2(k,i+1,pick==k)).join('')+'</div>'}
 function paint(){th=applyTheme();const t=th.t;$('#themeBtn').innerHTML=`<span>${t.e}</span><b>${t.n}</b>${th.auto?'<em>AUTO</em>':''}<s>▾</s>`;if(!$('#pop').hidden)$('#pop').innerHTML='<h5>Choose a theme</h5>'+tgrid();const sg=$('#sg');if(sg)sg.innerHTML=tgrid();set('hl',th.k!='default'?t.m:'');if($('#st3'))stats()}
 function pick(k,x,y){store.set('theme',k);paint();const f=document.createElement('div');f.className='flash';f.style.cssText=`left:${x}px;top:${y}px;background:radial-gradient(circle,${th.t.a},transparent 70%)`;document.body.append(f);setTimeout(()=>f.remove(),1000);toast(th.t.e+' '+th.t.n+(k=='auto'?' (auto)':''))}
-$('#themeBtn').onclick=e=>{e.stopPropagation();const p=$('#pop');p.hidden=!p.hidden;if(!p.hidden)p.innerHTML='<h5>Choose a theme</h5>'+tgrid()};
+$('#themeBtn').onclick=e=>{e.stopPropagation();if(popEl.hidden||popEl.classList.contains('closing'))openPop();else closePop()};
+/* ---------- popup open/close ---------- */
+let pt;const popEl=$('#pop');
+function openPop(){clearTimeout(pt);popEl.classList.remove('closing');popEl.innerHTML='<h5>Choose a theme</h5>'+tgrid();popEl.hidden=false}
+function closePop(){if(popEl.hidden||popEl.classList.contains('closing'))return;popEl.classList.add('closing');pt=setTimeout(()=>{popEl.hidden=true;popEl.classList.remove('closing')},180)}
 /* ---------- settings ---------- */
 const tg=(id,t,s)=>`<label class="tg"><span>${t}<small>${s}</small></span><input type="checkbox" id="${id}"><i></i></label>`;
 $('#s-settings').innerHTML=`<div class="ph"><h2>Settings</h2><p>Everything is saved in this browser.</p></div>
@@ -78,18 +95,19 @@ $('#nick').value=store.get('nick','');let nt;$('#nick').oninput=e=>{store.set('n
 $('#reset').onclick=()=>{if(confirm('Reset favorites, nickname, theme and all settings?')){Object.keys(localStorage).filter(k=>k.startsWith('smt.')).forEach(k=>localStorage.removeItem(k));location.hash='home';location.reload()}};
 /* ---------- global events ---------- */
 document.addEventListener('click',e=>{closeCtx();const T=e.target,hh=T.closest('[data-h]'),th2=T.closest('[data-th]'),g=T.closest('[data-go]'),s=T.closest('#tabs [data-s]'),c=T.closest('.card'),cp=T.closest('[data-c]'),o=T.closest('.out');
-if(hh){e.stopPropagation();return toggleFav(hh.dataset.h)}if(th2){const r=th2.getBoundingClientRect();$('#pop').hidden=true;return pick(th2.dataset.th,r.left+r.width/2,r.top+r.height/2)}
+if(hh){e.stopPropagation();return toggleFav(hh.dataset.h)}if(th2){const r=th2.getBoundingClientRect();closePop();return pick(th2.dataset.th,r.left+r.width/2,r.top+r.height/2)}
 if(s)location.hash=s.dataset.s;else if(g)location.hash=byId(g.dataset.go)?'tool/'+g.dataset.go:g.dataset.go;else if(c)location.hash='tool/'+c.dataset.id;
 else if(cp){let v=cp.dataset.c;try{const el=v[0]=='#'&&$(v);if(el)v=el.textContent}catch(_){}copy(v)}else if(o&&o.id&&o.textContent.trim())copy(o.textContent);
-if(!T.closest('#pop'))$('#pop').hidden=true});
+if(!T.closest('#pop'))closePop()});
 addEventListener('keydown',e=>{const tg=document.activeElement.tagName,typing=/INPUT|TEXTAREA|SELECT/.test(tg);
-if(e.key=='Escape'){closeCtx();if(!$('#pop').hidden)$('#pop').hidden=true;else if(at=='tool')location.hash=from}
+if(e.key=='Escape'){closeCtx();if(!popEl.hidden&&!popEl.classList.contains('closing'))closePop();else if(at=='tool')location.hash=from}
+if(at=='tool'&&cur&&cur.id=='calc')return;
 if(e.key=='Enter'&&tg=='INPUT'&&document.activeElement.type!='checkbox'&&$('#vb').contains(document.activeElement)){const b=$('#vb .btn');b&&b.click()}
 if(e.key=='Enter'&&document.activeElement.classList.contains('card'))location.hash='tool/'+document.activeElement.dataset.id;
 if(typing||e.ctrlKey||e.metaKey)return;if(e.key=='/'){e.preventDefault();location.hash='tools';setTimeout(()=>$('#q').focus(),350)}if('1234'.includes(e.key)&&e.key)location.hash=TABS[e.key-1][0]});
 /* ---------- scroll, spotlight, context menu ---------- */
-let rf;const sc=()=>{rf=0;const h=document.documentElement,p=h.scrollTop/Math.max(1,h.scrollHeight-innerHeight),b=$('#totop');$('#prog').style.transform=`scaleX(${p})`;b.style.setProperty('--p',Math.round(p*100));b.classList.toggle('show',h.scrollTop>400);$('.nav').classList.toggle('scrolled',h.scrollTop>10)};
-addEventListener('scroll',()=>{closeCtx();rf=rf||requestAnimationFrame(sc)},{passive:true});$('#totop').onclick=()=>scrollTo({top:0,behavior:'smooth'});
+let rf;const sc=()=>{rf=0;const h=document.documentElement,p=h.scrollTop/Math.max(1,h.scrollHeight-innerHeight),b=$('#totop');b.style.setProperty('--p',Math.round(p*100));b.classList.toggle('show',h.scrollTop>400);$('.nav').classList.toggle('scrolled',h.scrollTop>10)};
+let sct;addEventListener('scroll',()=>{closeCtx();document.documentElement.classList.add('scrolling');clearTimeout(sct);sct=setTimeout(()=>document.documentElement.classList.remove('scrolling'),140);rf=rf||requestAnimationFrame(sc)},{passive:true});$('#totop').onclick=()=>scrollTo({top:0,behavior:'smooth'});
 addEventListener('resize',()=>closeCtx());if('ResizeObserver' in window)new ResizeObserver(()=>ind(at=='tool'?from:at)).observe($('#tabs'));
 document.addEventListener('pointermove',e=>{const t=e.target.closest&&e.target.closest('.tile,.card,.grp');if(t){const r=t.getBoundingClientRect();t.style.setProperty('--mx',e.clientX-r.left+'px');t.style.setProperty('--my',e.clientY-r.top+'px')}},{passive:true});
 const ctx=$('#ctx');let acts=[];const closeCtx=()=>{ctx.hidden=true};
